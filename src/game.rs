@@ -1,5 +1,7 @@
 use array2d::Array2D;
+use std::collections::HashSet;
 use std::convert::TryFrom;
+use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Game {
@@ -30,7 +32,7 @@ pub enum Direction {
     Northwest,
 }
 
-pub type Number = usize;
+pub type Number = NonZeroUsize;
 
 pub enum Error {
     MultipleOfNumber(Number),
@@ -42,8 +44,14 @@ macro_rules! cell {
     ($direction:tt) => {
         Cell::new(dir!($direction), None);
     };
+    ($_:tt, 0) => {
+        compile_error!("Cell numbers must be non-zero");
+    };
     ($direction:tt, $number:tt) => {
-        Cell::new(dir!($direction), Some($number));
+        Cell::new(
+            dir!($direction),
+            Some(NonZeroUsize::new($number).expect("Cell numbers must be non-zero")),
+        );
     };
 }
 
@@ -86,6 +94,17 @@ impl Game {
             .elements_row_major_iter()
             .flat_map(|cell| cell.number)
             .collect::<Vec<_>>();
+        let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::NoZeroAllowed)?;
+        let mut seen = HashSet::new();
+        for number in numbers {
+            if seen.contains(&number) {
+                return Err(Error::MultipleOfNumber(number));
+            }
+            if number > max_number {
+                return Err(Error::NumberTooHigh(number));
+            }
+            seen.insert(number);
+        }
         Ok(Self { board })
     }
 
