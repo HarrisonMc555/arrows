@@ -34,10 +34,18 @@ pub enum Direction {
 
 pub type Number = NonZeroUsize;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Error {
+    EmptyBoard,
     MultipleOfNumber(Number),
     NumberTooHigh(Number),
+    #[allow(dead_code)]
     NoZeroAllowed,
+    WrongFinalNumber {
+        actual: Number,
+        expected: Number,
+    },
+    FinalNumberWithDirection(Number, Direction),
 }
 
 macro_rules! cell {
@@ -90,21 +98,39 @@ macro_rules! dir {
 
 impl Game {
     pub fn new(board: Array2D<Cell>) -> Result<Self, Error> {
-        let numbers = board
-            .elements_row_major_iter()
-            .flat_map(|cell| cell.number)
-            .collect::<Vec<_>>();
-        let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::NoZeroAllowed)?;
+        let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::EmptyBoard)?;
         let mut seen = HashSet::new();
-        for number in numbers {
+
+        for (pointer, number) in board
+            .elements_row_major_iter()
+            .flat_map(|cell| cell.pointer_number())
+        {
+            match pointer {
+                Pointer::Go(direction) => {
+                    if number == max_number {
+                        return Err(Error::FinalNumberWithDirection(number, direction));
+                    }
+                }
+                Pointer::Final => {
+                    if number != max_number {
+                        return Err(Error::WrongFinalNumber {
+                            actual: number,
+                            expected: max_number,
+                        });
+                    }
+                }
+            };
+
             if seen.contains(&number) {
                 return Err(Error::MultipleOfNumber(number));
             }
             if number > max_number {
                 return Err(Error::NumberTooHigh(number));
             }
+
             seen.insert(number);
         }
+
         Ok(Self { board })
     }
 
@@ -161,6 +187,10 @@ impl Cell {
     pub fn new(pointer: Pointer, number: Option<Number>) -> Self {
         Self { pointer, number }
     }
+
+    pub fn pointer_number(self) -> Option<(Pointer, Number)> {
+        self.number.map(|n| (self.pointer, n))
+    }
 }
 
 impl<'a> TryFrom<&'a str> for Direction {
@@ -201,4 +231,93 @@ fn log10(num: usize) -> usize {
     let exponent = num.log10();
     let exponent_ceil = exponent.ceil();
     exponent_ceil as usize
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn valid_board() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ]);
+        let result = Game::new(board);
+        println!("{:?}", result);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn empty_board() {
+        let board = Array2D::from_rows(&vec![]);
+        let result = Game::new(board);
+        println!("{:?}", result);
+        assert_eq!(result, Err(Error::EmptyBoard));
+    }
+
+    #[test]
+    fn multiple_numbers() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e", 5), cell!("w"), cell!("*", 9)],
+        ]);
+        let result = Game::new(board);
+        println!("{:?}", result);
+        assert_eq!(
+            result,
+            Err(Error::MultipleOfNumber(NonZeroUsize::new(5).unwrap()))
+        );
+    }
+
+    #[test]
+    fn number_too_high() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e", 10), cell!("w"), cell!("*", 9)],
+        ]);
+        let result = Game::new(board);
+        println!("{:?}", result);
+        assert_eq!(result, Err(Error::NumberTooHigh(number(10))));
+    }
+
+    // Cannot test zero due to NonZeroUsize (this is a good thing!)
+
+    #[test]
+    fn wrong_final_number() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e", 8), cell!("w"), cell!("*", 8)],
+        ]);
+        let result = Game::new(board);
+        assert_eq!(
+            result,
+            Err(Error::WrongFinalNumber {
+                actual: number(8),
+                expected: number(9),
+            })
+        );
+    }
+
+    #[test]
+    fn final_number_with_direction() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e", 8), cell!("w"), cell!("e", 9)],
+        ]);
+        let result = Game::new(board);
+        assert_eq!(
+            result,
+            Err(Error::FinalNumberWithDirection(number(9), Direction::East)),
+        );
+    }
+
+    fn number(x: usize) -> NonZeroUsize {
+        NonZeroUsize::new(x).expect("Invalid number")
+    }
 }
