@@ -1,4 +1,5 @@
 mod game;
+mod solver;
 
 use game::Game;
 
