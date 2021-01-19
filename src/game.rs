@@ -3,9 +3,11 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::num::NonZeroUsize;
 
+pub type Board = Array2D<Cell>;
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Game {
-    board: Array2D<Cell>,
+    board: Board,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -97,7 +99,7 @@ macro_rules! dir {
 }
 
 impl Game {
-    pub fn new(board: Array2D<Cell>) -> Result<Self, Error> {
+    pub fn new(board: Board) -> Result<Self, Error> {
         let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::EmptyBoard)?;
         let mut seen = HashSet::new();
 
@@ -132,6 +134,10 @@ impl Game {
         }
 
         Ok(Self { board })
+    }
+
+    pub fn board(&self) -> &Board {
+        &self.board
     }
 
     pub fn example() -> Self {
