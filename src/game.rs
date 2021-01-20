@@ -147,7 +147,7 @@ impl Game {
                 vec![cell!("s"), cell!("s", 12), cell!("w", 5), cell!("w")],
                 vec![cell!("se"), cell!("w"), cell!("e"), cell!("n")],
                 vec![cell!("e"), cell!("e"), cell!("n"), cell!("*", 16)],
-            ]),
+            ]).unwrap(),
         }
     }
 
@@ -249,7 +249,7 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e"), cell!("w"), cell!("*", 9)],
-        ]);
+        ]).unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
         assert!(result.is_ok());
@@ -257,7 +257,7 @@ mod test {
 
     #[test]
     fn empty_board() {
-        let board = Array2D::from_rows(&vec![]);
+        let board = Array2D::from_rows(&vec![]).unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
         assert_eq!(result, Err(Error::EmptyBoard));
@@ -269,7 +269,7 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 5), cell!("w"), cell!("*", 9)],
-        ]);
+        ]).unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
         assert_eq!(
@@ -284,7 +284,7 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 10), cell!("w"), cell!("*", 9)],
-        ]);
+        ]).unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
         assert_eq!(result, Err(Error::NumberTooHigh(number(10))));
@@ -298,7 +298,7 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 8), cell!("w"), cell!("*", 8)],
-        ]);
+        ]).unwrap();
         let result = Game::new(board);
         assert_eq!(
             result,
@@ -315,7 +315,7 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 8), cell!("w"), cell!("e", 9)],
-        ]);
+        ]).unwrap();
         let result = Game::new(board);
         assert_eq!(
             result,
