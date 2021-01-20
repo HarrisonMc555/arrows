@@ -2,10 +2,8 @@
 
 use crate::game::Direction::*;
 use crate::game::*;
-use array2d::Array2D;
 use std::cmp::Ordering::*;
 use std::collections::HashMap;
-use std::num::NonZeroUsize;
 
 #[derive(Debug)]
 pub struct Solver {
@@ -19,14 +17,34 @@ struct Index {
     column: usize,
 }
 
+pub enum Error {
+    ImpossibleBoard,
+    Internal(String),
+}
+
 impl Solver {
-    pub fn new(game: Game) -> Self {
-        let board = game.board;
+    fn new(board: Board) -> Self {
         let num_to_index = Self::create_num_to_index(&board);
         Solver {
             board,
             num_to_index,
         }
+    }
+
+    pub fn solve(board: Board) -> Result<Board, Error> {
+        let mut solver = Solver::new(board);
+        solver.solve_internal(1)?;
+        Ok(solver.board)
+    }
+
+    fn solve_internal(&mut self, number: Number) -> Result<(), Error> {
+        if number >= self.board.num_elements() {
+            return Ok(());
+        }
+        if self.num_to_index.contains_key(&number) {
+            return self.solve_internal(number + 1);
+        }
+        unimplemented!()
     }
 
     fn create_num_to_index(board: &Board) -> HashMap<Number, Index> {
@@ -92,19 +110,17 @@ impl Index {
 #[cfg(test)]
 mod test {
     use super::*;
+    use array2d::Array2D;
 
     macro_rules! cell {
         ($direction:tt) => {
-            Cell::new(dir!($direction), None);
+            Cell::new(dir!($direction), None).unwrap();
         };
         ($_:tt, 0) => {
             compile_error!("Cell numbers must be non-zero");
         };
         ($direction:tt, $number:tt) => {
-            Cell::new(
-                dir!($direction),
-                Some(NonZeroUsize::new($number).expect("Cell numbers must be non-zero")),
-            );
+            Cell::new(dir!($direction), Some($number)).unwrap();
         };
     }
 
@@ -200,12 +216,11 @@ mod test {
             vec![cell!("e"), cell!("w"), cell!("*", 9)],
         ])
         .unwrap();
-        let game = Game::new(board).unwrap();
-        let solver = Solver::new(game);
+        let solver = Solver::new(board);
 
         let num_to_index = vec![(1, (0, 0)), (5, (1, 1)), (4, (1, 2)), (9, (2, 2))]
             .into_iter()
-            .map(|(num, (row, column))| (NonZeroUsize::new(num).unwrap(), Index::new(row, column)))
+            .map(|(num, (row, column))| (num, Index::new(row, column)))
             .collect::<HashMap<_, _>>();
 
         assert_eq!(solver.num_to_index, num_to_index);

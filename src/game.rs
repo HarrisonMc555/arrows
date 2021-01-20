@@ -1,7 +1,6 @@
 use array2d::Array2D;
 use std::collections::HashSet;
 use std::convert::TryFrom;
-use std::num::NonZeroUsize;
 
 pub type Board = Array2D<Cell>;
 
@@ -34,34 +33,27 @@ pub enum Direction {
     Northwest,
 }
 
-pub type Number = NonZeroUsize;
+pub type Number = usize;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Error {
     EmptyBoard,
     MultipleOfNumber(Number),
     NumberTooHigh(Number),
-    #[allow(dead_code)]
     NoZeroAllowed,
-    WrongFinalNumber {
-        actual: Number,
-        expected: Number,
-    },
+    WrongFinalNumber { actual: Number, expected: Number },
     FinalNumberWithDirection(Number, Direction),
 }
 
 macro_rules! cell {
     ($direction:tt) => {
-        Cell::new(dir!($direction), None);
+        Cell::new(dir!($direction), None).unwrap();
     };
     ($_:tt, 0) => {
         compile_error!("Cell numbers must be non-zero");
     };
     ($direction:tt, $number:tt) => {
-        Cell::new(
-            dir!($direction),
-            Some(NonZeroUsize::new($number).expect("Cell numbers must be non-zero")),
-        );
+        Cell::new(dir!($direction), Some($number)).unwrap();
     };
 }
 
@@ -101,7 +93,10 @@ macro_rules! dir {
 impl Game {
     #[allow(dead_code)]
     pub fn new(board: Board) -> Result<Self, Error> {
-        let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::EmptyBoard)?;
+        if board.num_elements() == 0 {
+            return Err(Error::EmptyBoard);
+        }
+        let max_number = board.num_elements();
         let mut seen = HashSet::new();
 
         for (pointer, number) in board
@@ -144,7 +139,8 @@ impl Game {
                 vec![cell!("s"), cell!("s", 12), cell!("w", 5), cell!("w")],
                 vec![cell!("se"), cell!("w"), cell!("e"), cell!("n")],
                 vec![cell!("e"), cell!("e"), cell!("n"), cell!("*", 16)],
-            ]).unwrap(),
+            ])
+            .unwrap(),
         }
     }
 
@@ -187,8 +183,11 @@ impl Game {
 }
 
 impl Cell {
-    pub fn new(pointer: Pointer, number: Option<Number>) -> Self {
-        Self { pointer, number }
+    pub fn new(pointer: Pointer, number: Option<Number>) -> Result<Self, Error> {
+        if number == Some(0) {
+            return Err(Error::NoZeroAllowed);
+        }
+        Ok(Self { pointer, number })
     }
 
     pub fn pointer_number(self) -> Option<(Pointer, Number)> {
@@ -246,7 +245,8 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e"), cell!("w"), cell!("*", 9)],
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
         assert!(result.is_ok());
@@ -266,13 +266,11 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 5), cell!("w"), cell!("*", 9)],
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
-        assert_eq!(
-            result,
-            Err(Error::MultipleOfNumber(NonZeroUsize::new(5).unwrap()))
-        );
+        assert_eq!(result, Err(Error::MultipleOfNumber(5)));
     }
 
     #[test]
@@ -281,13 +279,20 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 10), cell!("w"), cell!("*", 9)],
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = Game::new(board);
         println!("{:?}", result);
-        assert_eq!(result, Err(Error::NumberTooHigh(number(10))));
+        assert_eq!(result, Err(Error::NumberTooHigh(10)));
     }
 
-    // Cannot test zero due to NonZeroUsize (this is a good thing!)
+    #[test]
+    fn number_zero() {
+        assert_eq!(
+            Cell::new(Pointer::Go(Direction::East), Some(0)),
+            Err(Error::NoZeroAllowed)
+        )
+    }
 
     #[test]
     fn wrong_final_number() {
@@ -295,13 +300,14 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 8), cell!("w"), cell!("*", 8)],
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = Game::new(board);
         assert_eq!(
             result,
             Err(Error::WrongFinalNumber {
-                actual: number(8),
-                expected: number(9),
+                actual: 8,
+                expected: 9,
             })
         );
     }
@@ -312,15 +318,12 @@ mod test {
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 8), cell!("w"), cell!("e", 9)],
-        ]).unwrap();
+        ])
+        .unwrap();
         let result = Game::new(board);
         assert_eq!(
             result,
-            Err(Error::FinalNumberWithDirection(number(9), Direction::East)),
+            Err(Error::FinalNumberWithDirection(9, Direction::East)),
         );
-    }
-
-    fn number(x: usize) -> NonZeroUsize {
-        NonZeroUsize::new(x).expect("Invalid number")
     }
 }
