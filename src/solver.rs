@@ -1,8 +1,11 @@
 #![allow(dead_code, unused_variables, unreachable_patterns)]
 
-use crate::game::{Board, Direction, Direction::*, Game, Number};
+use crate::game::Direction::*;
+use crate::game::*;
+use array2d::Array2D;
 use std::cmp::Ordering::*;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 
 #[derive(Debug)]
 pub struct Solver {
@@ -18,13 +21,23 @@ struct Index {
 
 impl Solver {
     pub fn new(game: Game) -> Self {
-        let board = game.board();
+        let board = game.board;
         let num_to_index = Self::create_num_to_index(&board);
-        unimplemented!()
+        Solver {
+            board,
+            num_to_index,
+        }
     }
 
-    fn create_num_to_index(board: &Board) -> HashMap<Index, Index> {
-        unimplemented!()
+    fn create_num_to_index(board: &Board) -> HashMap<Number, Index> {
+        board
+            .enumerate_row_major()
+            .flat_map(|((row, column), cell)| {
+                let (_, number) = cell.pointer_number()?;
+                let index = Index::new(row, column);
+                Some((number, index))
+            })
+            .collect()
     }
 }
 
@@ -80,6 +93,54 @@ impl Index {
 mod test {
     use super::*;
 
+    macro_rules! cell {
+        ($direction:tt) => {
+            Cell::new(dir!($direction), None);
+        };
+        ($_:tt, 0) => {
+            compile_error!("Cell numbers must be non-zero");
+        };
+        ($direction:tt, $number:tt) => {
+            Cell::new(
+                dir!($direction),
+                Some(NonZeroUsize::new($number).expect("Cell numbers must be non-zero")),
+            );
+        };
+    }
+
+    macro_rules! dir {
+        ("n") => {
+            Pointer::Go(Direction::North);
+        };
+        ("n") => {
+            Pointer::Go(Direction::North);
+        };
+        ("ne") => {
+            Pointer::Go(Direction::Northeast);
+        };
+        ("e") => {
+            Pointer::Go(Direction::East);
+        };
+        ("se") => {
+            Pointer::Go(Direction::Southeast);
+        };
+        ("s") => {
+            Pointer::Go(Direction::South);
+        };
+        ("sw") => {
+            Pointer::Go(Direction::Southwest);
+        };
+        ("w") => {
+            Pointer::Go(Direction::West);
+        };
+        ("nw") => {
+            Pointer::Go(Direction::Northwest);
+        };
+        ("*") => {
+            Pointer::Final;
+        };
+    }
+
     #[test]
     fn test_get_direction() {
         let start = Index::new(10, 20);
@@ -129,5 +190,24 @@ mod test {
         assert_eq!(dir(9, 18), None);
         assert_eq!(dir(9, 0), None);
         assert_eq!(dir(5, 55), None);
+    }
+
+    #[test]
+    fn test_solver_new() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+        let game = Game::new(board).unwrap();
+        let solver = Solver::new(game);
+
+        let num_to_index = vec![(1, (0, 0)), (5, (1, 1)), (4, (1, 2)), (9, (2, 2))]
+            .into_iter()
+            .map(|(num, (row, column))| (NonZeroUsize::new(num).unwrap(), Index::new(row, column)))
+            .collect::<HashMap<_, _>>();
+
+        assert_eq!(solver.num_to_index, num_to_index);
     }
 }

@@ -7,7 +7,7 @@ pub type Board = Array2D<Cell>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Game {
-    board: Board,
+    pub board: Board,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -99,6 +99,7 @@ macro_rules! dir {
 }
 
 impl Game {
+    #[allow(dead_code)]
     pub fn new(board: Board) -> Result<Self, Error> {
         let max_number = NonZeroUsize::new(board.num_elements()).ok_or(Error::EmptyBoard)?;
         let mut seen = HashSet::new();
@@ -134,10 +135,6 @@ impl Game {
         }
 
         Ok(Self { board })
-    }
-
-    pub fn board(&self) -> &Board {
-        &self.board
     }
 
     pub fn example() -> Self {
