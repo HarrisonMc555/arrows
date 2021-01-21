@@ -525,4 +525,36 @@ mod test {
         .unwrap());
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn test_example_board2() {
+        let initial_board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("s"), cell!("w", 5), cell!("sw")],
+            vec![cell!("se"), cell!("se"), cell!("s"), cell!("sw")],
+            vec![cell!("ne"), cell!("e"), cell!("w"), cell!("n")],
+            vec![cell!("n"), cell!("w"), cell!("n"), cell!("*", 16)],
+        ])
+        .unwrap();
+
+        let actual = Solver::solve(initial_board);
+        let expected = Ok(Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("s", 6), cell!("w", 5), cell!("sw", 2)],
+            vec![
+                cell!("se", 9),
+                cell!("se", 15),
+                cell!("s", 3),
+                cell!("sw", 12),
+            ],
+            vec![
+                cell!("ne", 14),
+                cell!("e", 10),
+                cell!("w", 13),
+                cell!("n", 11),
+            ],
+            vec![cell!("n", 8), cell!("w", 7), cell!("n", 4), cell!("*", 16)],
+        ])
+        .unwrap());
+
+        assert_eq!(actual, expected);
+    }
 }
