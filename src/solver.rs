@@ -47,8 +47,30 @@ impl Solver {
         }
 
         let prev_number = number - 1;
-        let possible_indices = self.get_possible_indices_from_prev(prev_number);
-        unimplemented!()
+        let next_number = number + 1;
+        let possible_indices = self.get_possible_indices_from_prev(prev_number)?;
+        for index in possible_indices.into_iter() {
+            let row_column = index.row_column();
+            let next_index = self.num_to_index.get(&next_number).clone();
+            if let Some(next_index) = next_index {
+                let direction = match self.board[row_column].pointer {
+                    Pointer::Go(direction) => direction,
+                    Pointer::Final => continue,
+                };
+                if get_direction(index, *next_index) != Some(direction) {
+                    continue;
+                }
+            }
+            assert!(self.board[row_column].number.is_none());
+            self.num_to_index.insert(number, index);
+            self.board[row_column].number = Some(number);
+            if self.solve_internal(next_number).is_ok() {
+                return Ok(());
+            }
+            self.board[row_column].number = None;
+        }
+
+        Err(Error::ImpossibleBoard)
     }
 
     fn get_possible_indices_from_prev(&self, prev_number: Number) -> Result<Vec<Index>, Error> {
@@ -433,6 +455,55 @@ mod test {
         let actual = solver.get_possible_indices_from_prev(5)?;
         let expected = indices(vec![(1, 0)]);
         assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_solve() -> Result<(), super::Error> {
+        let initial_board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+
+        let result = Solver::solve(initial_board);
+        assert!(result.is_ok());
+        let actual = result.unwrap();
+        let expected = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e", 2), cell!("s", 3)],
+            vec![cell!("se", 6), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e", 8), cell!("w", 7), cell!("*", 9)],
+        ])
+        .unwrap();
+
+        assert_eq!(actual, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_impossible_board() -> Result<(), super::Error> {
+        let initial_board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("e")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+
+        let result = Solver::solve(initial_board);
+        assert_eq!(result, Err(super::Error::ImpossibleBoard));
+
+        let initial_board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("w")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+
+        let result = Solver::solve(initial_board);
+        assert_eq!(result, Err(super::Error::ImpossibleBoard));
 
         Ok(())
     }
