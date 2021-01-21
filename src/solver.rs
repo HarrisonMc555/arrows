@@ -67,6 +67,7 @@ impl Solver {
             if self.solve_internal(next_number).is_ok() {
                 return Ok(());
             }
+            self.num_to_index.remove(&number);
             self.board[row_column].number = None;
         }
 
@@ -460,7 +461,7 @@ mod test {
     }
 
     #[test]
-    fn test_solve() -> Result<(), super::Error> {
+    fn test_solve() {
         let initial_board = Array2D::from_rows(&vec![
             vec![cell!("e", 1), cell!("e"), cell!("s")],
             vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
@@ -468,19 +469,15 @@ mod test {
         ])
         .unwrap();
 
-        let result = Solver::solve(initial_board);
-        assert!(result.is_ok());
-        let actual = result.unwrap();
-        let expected = Array2D::from_rows(&vec![
+        let actual = Solver::solve(initial_board);
+        let expected = Ok(Array2D::from_rows(&vec![
             vec![cell!("e", 1), cell!("e", 2), cell!("s", 3)],
             vec![cell!("se", 6), cell!("w", 5), cell!("w", 4)],
             vec![cell!("e", 8), cell!("w", 7), cell!("*", 9)],
         ])
-        .unwrap();
+        .unwrap());
 
         assert_eq!(actual, expected);
-
-        Ok(())
     }
 
     #[test]
@@ -506,5 +503,26 @@ mod test {
         assert_eq!(result, Err(super::Error::ImpossibleBoard));
 
         Ok(())
+    }
+
+    #[test]
+    fn test_example_board() {
+        use crate::game::Game;
+        let initial_board = Game::example().board;
+
+        let actual = Solver::solve(initial_board);
+        let expected = Ok(Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e", 2), cell!("s", 4), cell!("w", 3)],
+            vec![cell!("s", 6), cell!("s", 12), cell!("w", 5), cell!("w", 11)],
+            vec![
+                cell!("se", 14),
+                cell!("w", 13),
+                cell!("e", 9),
+                cell!("n", 10),
+            ],
+            vec![cell!("e", 7), cell!("e", 15), cell!("n", 8), cell!("*", 16)],
+        ])
+        .unwrap());
+        assert_eq!(actual, expected);
     }
 }
