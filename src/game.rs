@@ -11,8 +11,8 @@ pub struct Game {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Cell {
-    pointer: Pointer,
-    number: Option<Number>,
+    pub pointer: Pointer,
+    pub number: Option<Number>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

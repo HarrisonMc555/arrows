@@ -44,7 +44,65 @@ impl Solver {
         if self.num_to_index.contains_key(&number) {
             return self.solve_internal(number + 1);
         }
+
+        let prev_number = number - 1;
+        let possible_indices = self.get_possible_indices_from_prev(prev_number);
         unimplemented!()
+    }
+
+    fn get_possible_indices_from_prev(&self, prev_number: Number) -> Result<Vec<Index>, Error> {
+        let prev_index = match self.num_to_index.get(&prev_number) {
+            Some(prev_index) => prev_index,
+            // None => return (1..=self.max_number()).filter(|n|)
+            None => return Ok(self.get_empty_indices()),
+        };
+
+        let prev_pointer = self.board[prev_index.row_column()].pointer;
+        let direction = match prev_pointer {
+            Pointer::Go(direction) => direction,
+            Pointer::Final => {
+                return Err(Error::Internal(format!(
+                    "Previous index {:?} was final",
+                    prev_index
+                )))
+            }
+        };
+
+        Ok(self.indices_in_direction(*prev_index, direction))
+    }
+
+    fn indices_in_direction(&self, index: Index, direction: Direction) -> Vec<Index> {
+        let mut index = index;
+        let mut indices = Vec::new();
+        loop {
+            index = match index.step(direction) {
+                Some(index) => index,
+                None => return indices,
+            };
+            index.row += 1;
+            index.column += 1;
+            if index.row >= self.board.num_rows() || index.column >= self.board.num_columns() {
+                return indices;
+            }
+            indices.push(index);
+        }
+    }
+
+    fn get_empty_indices(&self) -> Vec<Index> {
+        self.board
+            .enumerate_row_major()
+            .filter_map(|((row, column), cell)| {
+                if cell.number.is_some() {
+                    None
+                } else {
+                    Some(Index::new(row, column))
+                }
+            })
+            .collect()
+    }
+
+    fn max_number(&self) -> Number {
+        self.board.num_elements()
     }
 
     fn create_num_to_index(board: &Board) -> HashMap<Number, Index> {
@@ -104,6 +162,29 @@ fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
 impl Index {
     pub fn new(row: usize, column: usize) -> Self {
         Self { row, column }
+    }
+
+    pub fn row_column(self) -> (usize, usize) {
+        (self.row, self.column)
+    }
+
+    pub fn step(self, direction: Direction) -> Option<Self> {
+        let row = self.row;
+        let column = self.column;
+        let new_row = match direction {
+            Northwest | North | Northeast => row.checked_sub(1)?,
+            Southwest | South | Southeast => row + 1,
+            _ => row,
+        };
+        let new_column = match direction {
+            Northwest | West | Southwest => column.checked_sub(1)?,
+            Northeast | East | Southeast => column + 1,
+            _ => column,
+        };
+        Some(Self {
+            row: new_row,
+            column: new_column,
+        })
     }
 }
 
@@ -224,5 +305,50 @@ mod test {
             .collect::<HashMap<_, _>>();
 
         assert_eq!(solver.num_to_index, num_to_index);
+    }
+
+    #[test]
+    fn test_step() {
+        let index = |row, column| Some(Index::new(row, column));
+
+        let middle = Index::new(10, 10);
+        assert_eq!(middle.step(North), index(9, 10));
+        assert_eq!(middle.step(Northeast), index(9, 11));
+        assert_eq!(middle.step(East), index(10, 11));
+        assert_eq!(middle.step(Southeast), index(11, 11));
+        assert_eq!(middle.step(South), index(11, 10));
+        assert_eq!(middle.step(Southwest), index(11, 9));
+        assert_eq!(middle.step(West), index(10, 9));
+        assert_eq!(middle.step(Northwest), index(9, 9));
+
+        let corner = Index::new(0, 0);
+        assert_eq!(corner.step(North), None);
+        assert_eq!(corner.step(Northeast), None);
+        assert_eq!(corner.step(East), index(0, 1));
+        assert_eq!(corner.step(Southeast), index(1, 1));
+        assert_eq!(corner.step(South), index(1, 0));
+        assert_eq!(corner.step(Southwest), None);
+        assert_eq!(corner.step(West), None);
+        assert_eq!(corner.step(Northwest), None);
+
+        let edge_north = Index::new(0, 10);
+        assert_eq!(edge_north.step(North), None);
+        assert_eq!(edge_north.step(Northeast), None);
+        assert_eq!(edge_north.step(East), index(0, 11));
+        assert_eq!(edge_north.step(Southeast), index(1, 11));
+        assert_eq!(edge_north.step(South), index(1, 10));
+        assert_eq!(edge_north.step(Southwest), index(1, 9));
+        assert_eq!(edge_north.step(West), index(0, 9));
+        assert_eq!(edge_north.step(Northwest), None);
+
+        let edge_west = Index::new(10, 0);
+        assert_eq!(edge_west.step(North), index(9, 0));
+        assert_eq!(edge_west.step(Northeast), index(9, 1));
+        assert_eq!(edge_west.step(East), index(10, 1));
+        assert_eq!(edge_west.step(Southeast), index(11, 1));
+        assert_eq!(edge_west.step(South), index(11, 0));
+        assert_eq!(edge_west.step(Southwest), None);
+        assert_eq!(edge_west.step(West), None);
+        assert_eq!(edge_west.step(Northwest), None);
     }
 }
