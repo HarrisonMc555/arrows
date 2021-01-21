@@ -17,6 +17,7 @@ struct Index {
     column: usize,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Error {
     ImpossibleBoard,
     Internal(String),
@@ -68,10 +69,10 @@ impl Solver {
             }
         };
 
-        Ok(self.indices_in_direction(*prev_index, direction))
+        Ok(self.get_empty_indices_in_direction(*prev_index, direction))
     }
 
-    fn indices_in_direction(&self, index: Index, direction: Direction) -> Vec<Index> {
+    fn get_empty_indices_in_direction(&self, index: Index, direction: Direction) -> Vec<Index> {
         let mut index = index;
         let mut indices = Vec::new();
         loop {
@@ -79,12 +80,12 @@ impl Solver {
                 Some(index) => index,
                 None => return indices,
             };
-            index.row += 1;
-            index.column += 1;
             if index.row >= self.board.num_rows() || index.column >= self.board.num_columns() {
                 return indices;
             }
-            indices.push(index);
+            if self.board[index.row_column()].number.is_none() {
+                indices.push(index);
+            }
         }
     }
 
@@ -350,5 +351,89 @@ mod test {
         assert_eq!(edge_west.step(Southwest), None);
         assert_eq!(edge_west.step(West), None);
         assert_eq!(edge_west.step(Northwest), None);
+    }
+
+    #[test]
+    fn test_empty_indices() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+        let solver = Solver::new(board);
+
+        let actual = solver.get_empty_indices();
+        let expected = vec![(0, 1), (0, 2), (1, 0), (2, 0), (2, 1)]
+            .into_iter()
+            .map(|(row, column)| Index::new(row, column))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_indices_in_direction() {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+        let solver = Solver::new(board);
+
+        let indices = |tuples: Vec<(usize, usize)>| {
+            tuples
+                .into_iter()
+                .map(|(row, column)| Index::new(row, column))
+                .collect::<Vec<_>>()
+        };
+
+        let actual = solver.get_empty_indices_in_direction(Index::new(0, 0), East);
+        let expected = indices(vec![(0, 1), (0, 2)]);
+        assert_eq!(actual, expected);
+
+        let actual = solver.get_empty_indices_in_direction(Index::new(0, 0), South);
+        let expected = indices(vec![(1, 0), (2, 0)]);
+        assert_eq!(actual, expected);
+
+        let actual = solver.get_empty_indices_in_direction(Index::new(0, 0), Southeast);
+        let expected = vec![];
+        assert_eq!(actual, expected);
+
+        let actual = solver.get_empty_indices_in_direction(Index::new(0, 2), Southwest);
+        let expected = indices(vec![(2, 0)]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_get_possible_indices_from_prev() -> Result<(), super::Error> {
+        let board = Array2D::from_rows(&vec![
+            vec![cell!("e", 1), cell!("e"), cell!("s")],
+            vec![cell!("se"), cell!("w", 5), cell!("w", 4)],
+            vec![cell!("e"), cell!("w"), cell!("*", 9)],
+        ])
+        .unwrap();
+        let solver = Solver::new(board);
+
+        let indices = |tuples: Vec<(usize, usize)>| {
+            tuples
+                .into_iter()
+                .map(|(row, column)| Index::new(row, column))
+                .collect::<Vec<_>>()
+        };
+
+        let actual = solver.get_possible_indices_from_prev(1)?;
+        let expected = indices(vec![(0, 1), (0, 2)]);
+        assert_eq!(actual, expected);
+
+        let actual = solver.get_possible_indices_from_prev(2)?;
+        let expected = indices(vec![(0, 1), (0, 2), (1, 0), (2, 0), (2, 1)]);
+        assert_eq!(actual, expected);
+
+        let actual = solver.get_possible_indices_from_prev(5)?;
+        let expected = indices(vec![(1, 0)]);
+        assert_eq!(actual, expected);
+
+        Ok(())
     }
 }
