@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 array2d = { path = "../array2d" }
+nom = "6.1"
