@@ -7,5 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-array2d = { path = "../array2d" }
-nom = "6.1"
+array2d = { git = "https://github.com/HarrisonMc555/array2d", branch = "add-enumerate" }
+nom = "6.2"
+lexical-core  = "^0.7.6"
